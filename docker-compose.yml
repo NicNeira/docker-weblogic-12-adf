@@ -1,0 +1,58 @@
+services:
+  db:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-xe
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+      ORACLE_CHARACTERSET: AL32UTF8
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    shm_size: 1g
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
+  weblogic:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        JDK_ARCHIVE: ${JDK_ARCHIVE}
+        FMW_INFRA_ZIP: ${FMW_INFRA_ZIP}
+        FMW_INFRA_JAR: ${FMW_INFRA_JAR}
+    image: weblogic-adf:12.2.1.4
+    container_name: weblogic-adf
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      RCU_PREFIX: ${RCU_PREFIX}
+      RCU_SCHEMA_PASSWORD: ${RCU_SCHEMA_PASSWORD}
+      RCU_DB_PASSWORD: ${ORACLE_PASSWORD}
+      RCU_DB_HOST: db
+      RCU_DB_PORT: 1521
+      RCU_DB_SERVICE: ${RCU_DB_SERVICE}
+      RCU_DB_USER: sys
+      RCU_DB_ROLE: SYSDBA
+    ports:
+      - "7001:7001"
+    volumes:
+      - weblogic_domains:/u01/domains
+    restart: unless-stopped
+
+volumes:
+  weblogic_domains:
+  oracle_data:
